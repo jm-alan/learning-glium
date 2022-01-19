@@ -6,30 +6,33 @@ use glium::{
     ContextBuilder, NotCurrent,
   },
   implement_vertex,
-  index::{NoIndices, PrimitiveType::TrianglesList},
-  texture, uniform, Display, Program, Surface, VertexBuffer,
+  index::PrimitiveType::TrianglesList,
+  // texture,
+  uniform,
+  Display,
+  IndexBuffer,
+  Program,
+  Surface,
+  VertexBuffer,
 };
-use image::{ImageBuffer, ImageFormat, Rgb};
-use std::{
-  io::Cursor,
-  time::{Duration, Instant},
-};
+// use image::{ImageBuffer, ImageFormat, Rgb};
+use std::time::{Duration, Instant};
 
 mod teapot;
 
 fn main() {
-  let image: ImageBuffer<Rgb<u8>, Vec<u8>> = image::load(
-    Cursor::new(&include_bytes!("/Users/jm/Desktop/use-as-texture.png")),
-    ImageFormat::Png,
-  )
-  .unwrap()
-  .to_rgb8();
-  let image_dimensions = image.dimensions();
-  let composed_image: texture::RawImage2d<u8> =
-    texture::RawImage2d::from_raw_rgb_reversed(
-      &image.into_raw(),
-      image_dimensions,
-    );
+  // let image: ImageBuffer<Rgb<u8>, Vec<u8>> = image::load(
+  //   Cursor::new(&include_bytes!("/Users/jm/Desktop/use-as-texture.png")),
+  //   ImageFormat::Png,
+  // )
+  // .unwrap()
+  // .to_rgb8();
+  // let image_dimensions = image.dimensions();
+  // let composed_image: texture::RawImage2d<u8> =
+  //   texture::RawImage2d::from_raw_rgb_reversed(
+  //     &image.into_raw(),
+  //     image_dimensions,
+  //   );
 
   #[derive(Copy, Clone)]
   struct Vertex {
@@ -45,76 +48,81 @@ fn main() {
 
   let display: Display = Display::new(w_build, c_build, &e_loop).unwrap();
 
-  let indices: NoIndices = NoIndices(TrianglesList);
-
-  let positions = VertexBuffer::new(&display, &teapot::VERTICIES).unwrap();
+  let positions: VertexBuffer<teapot::Vertex> =
+    VertexBuffer::new(&display, &teapot::VERTICES).unwrap();
+  let normals: VertexBuffer<teapot::Normal> =
+    VertexBuffer::new(&display, &teapot::NORMALS).unwrap();
+  let indices: IndexBuffer<u16> =
+    IndexBuffer::new(&display, TrianglesList, &teapot::INDICES).unwrap();
 
   // let texture = texture::SrgbTexture2d::new(&display, composed_image).unwrap();
 
   let shader_v = r#"
     #version 140
 
-    in vec2 position;
-    in vec2 tex_coords;
-    out vec2 v_tex_coords;
+    in vec3 position;
+    in vec3 normal;
 
     uniform mat4 matrix;
 
     void main() {
-      v_tex_coords = tex_coords;
-      gl_Position = matrix * vec4(position, 0.0, 1.0);
+      gl_Position = matrix * vec4(position, 1.0);
     }
   "#;
 
-  let shader_p = r#"
+  let shader_f = r#"
     #version 140
 
-    in vec2 v_tex_coords;
     out vec4 color;
 
-    uniform sampler2D tex;
-
     void main() {
-      color = texture(tex, v_tex_coords);
+      color = vec4(1.0, 0.0, 0.0, 1.0);
     }
   "#;
 
   let program =
-    Program::from_source(&display, shader_v, shader_p, None).unwrap();
+    Program::from_source(&display, shader_v, shader_f, None).unwrap();
 
-  let mut offset: f32 = 0.0;
-  let mut op = '-';
+  // let mut offset: f32 = 0.0;
+  // let mut op = '-';
 
   e_loop.run(move |ev, _, control_flow| {
-    if offset > 1.0 {
-      op = '-'
-    } else if offset < -1.0 {
-      op = '+'
-    };
-    if op == '-' {
-      offset -= 0.002;
-    } else if op == '+' {
-      offset += 0.002;
-    }
+    // if offset > 1.0 {
+    //   op = '-'
+    // } else if offset < -1.0 {
+    //   op = '+'
+    // };
+    // if op == '-' {
+    //   offset -= 0.002;
+    // } else if op == '+' {
+    //   offset += 0.002;
+    // }
 
-    let uniforms = uniform! {
-      matrix: [
-        [offset.cos(), offset.sin(), 0.0, 0.0],
-        [-offset.sin(), offset.cos(), 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0 , 0.0, 0.0, 1.0]
-      ],
-      tex: &texture
-    };
+    // let uniforms = uniform! {
+    //   matrix: [
+    //     [offset.cos(), offset.sin(), 0.0, 0.0],
+    //     [-offset.sin(), offset.cos(), 0.0, 0.0],
+    //     [0.0, 0.0, 1.0, 0.0],
+    //     [0.0 , 0.0, 0.0, 1.0]
+    //   ],
+    //   tex: &texture
+    // };
+
+    let matrix: [[f32; 4]; 4] = [
+      [0.01, 0.0, 0.0, 0.0],
+      [0.0, 0.01, 0.0, 0.0],
+      [0.0, 0.0, 0.01, 0.0],
+      [0.0, 0.0, 0.0, 1.0],
+    ];
 
     let mut target = display.draw();
-    target.clear_color(1.0, 0.0, 0.0, 1.0);
+    target.clear_color(0.0, 0.0, 1.0, 1.0);
     target
       .draw(
-        &buffer_v,
+        (&positions, &normals),
         &indices,
         &program,
-        &uniforms,
+        &uniform! { matrix: matrix },
         &Default::default(),
       )
       .unwrap();
