@@ -1,4 +1,5 @@
 use glium::{
+  // draw_parameters::BackfaceCullingMode,
   glutin::{
     event,
     event_loop::{ControlFlow, EventLoop},
@@ -23,6 +24,41 @@ use std::time::{Duration, Instant};
 
 mod teapot;
 
+fn view_matrix(pos: &[f32; 3], dir: &[f32; 3], up: &[f32; 3]) -> [[f32; 4]; 4] {
+  let f_len: f32 =
+    (dir[0].powf(2.0) + dir[1].powf(2.0) + dir[2].powf(2.0)).sqrt();
+
+  let f: [f32; 3] = [dir[0] / f_len, dir[1] / f_len, dir[2] / f_len];
+
+  let s: [f32; 3] = [
+    (up[1] * f[2]) - (up[2] * f[1]),
+    (up[2] * f[0]) - (up[0] * f[2]),
+    (up[0] * f[1]) - (up[1] * f[0]),
+  ];
+
+  let s_len: f32 = (s[0].powf(2.0) + s[1].powf(2.0) + s[2].powf(2.0)).sqrt();
+
+  let s_norm: [f32; 3] = [s[0] / s_len, s[1] / s_len, s[2] / s_len];
+
+  let u = [
+    (f[1] * s_norm[2]) - (f[2] * s_norm[1]),
+    (f[2] * s_norm[0]) - (f[0] * s_norm[2]),
+    (f[0] * s_norm[1]) - (f[1] * s_norm[0]),
+  ];
+
+  let p = [
+    -(pos[0] * s_norm[0]) - (pos[1] * s_norm[1]) - (pos[2] * s_norm[2]),
+    -(pos[0] * u[0]) - (pos[1] * u[1]) - (pos[2] * u[2]),
+    -(pos[0] * f[0]) - (pos[1] * f[1]) - (pos[2] * f[2]),
+  ];
+
+  [
+    [s_norm[0], u[0], f[0], 0.0],
+    [s_norm[1], u[1], f[1], 0.0],
+    [s_norm[2], u[2], f[2], 0.0],
+    [p[0], p[1], p[2], 1.0],
+  ]
+}
 fn main() {
   // let image: ImageBuffer<Rgb<u8>, Vec<u8>> = image::load(
   //   Cursor::new(&include_bytes!("/Users/jm/Desktop/use-as-texture.png")),
@@ -69,12 +105,14 @@ fn main() {
 
     out vec3 v_normal;
 
-    uniform mat4 matrix;
     uniform mat4 perspective;
+    uniform mat4 view;
+    uniform mat4 model;
 
     void main() {
-      v_normal = transpose(inverse(mat3(matrix))) * normal;
-      gl_Position = perspective * matrix * vec4(position, 1.0);
+      mat4 modelview = view * model;
+      v_normal = transpose(inverse(mat3(modelview))) * normal;
+      gl_Position = perspective * modelview * vec4(position, 1.0);
     }
   "#;
 
@@ -98,7 +136,8 @@ fn main() {
 
   let mut offset: f32 = 0.0;
   let mut op = '-';
-  const OFFSET_BOUND: f32 = 2.0;
+  const OFFSET_BOUND: f32 = 1.0;
+  const OFFSET_INCR: f32 = 0.005;
 
   e_loop.run(move |ev, _, control_flow| {
     if offset > OFFSET_BOUND {
@@ -107,9 +146,9 @@ fn main() {
       op = '+'
     };
     if op == '-' {
-      offset -= 0.02;
+      offset -= OFFSET_INCR;
     } else if op == '+' {
-      offset += 0.02;
+      offset += OFFSET_INCR;
     }
 
     // let uniforms = uniform! {
@@ -126,7 +165,7 @@ fn main() {
       [0.01, 0.0, 0.0, 0.0],
       [0.0, 0.01, 0.0, 0.0],
       [0.0, 0.0, 0.01, 0.0],
-      [0.0, 0.0, offset + 3.0, 1.0],
+      [0.5, -0.5, 1.5, 1.0],
     ];
 
     let light: [f32; 3] = [1.0, 1.0, 0.5];
@@ -157,15 +196,26 @@ fn main() {
         write: true,
         ..Default::default()
       },
+      // backface_culling: BackfaceCullingMode::CullClockwise,
       ..Default::default()
     };
+
+    let view_pos: [f32; 3] = [2.0 + offset, -0.5, 1.0];
+    let view_dir: [f32; 3] = [-2.0, 1.0, 1.0];
+    let view_up: [f32; 3] = [0.0, 1.0, offset];
+    let view: [[f32; 4]; 4] = view_matrix(&view_pos, &view_dir, &view_up);
 
     target
       .draw(
         (&positions, &normals),
         &indices,
         &program,
-        &uniform! { matrix: position_matrix, u_light: light, perspective: perspective_matrix },
+        &uniform! {
+          view: view,
+          model: position_matrix,
+          u_light: light,
+          perspective: perspective_matrix
+        },
         &params,
       )
       .unwrap();
