@@ -177,7 +177,7 @@ fn main() {
     let perspective_matrix: [[f32; 4]; 4] = {
       let (width, height) = target.get_dimensions();
       let aspect_ratio = height as f32 / width as f32;
-      let fov: f32 = 3.1415926535897932384626 / 3.0;
+      let fov: f32 = 3.141_592_7 / 3.0;
       let z_far = (2 ^ 10) as f32;
       let z_near: f32 = 0.1;
       let f: f32 = (fov / 2.0).tan();
@@ -229,9 +229,8 @@ fn main() {
       event::Event::WindowEvent { event, .. } => match event {
         event::WindowEvent::CloseRequested => {
           *control_flow = ControlFlow::Exit;
-          return;
         }
-        _ => return,
+        _ => (),
       },
       _ => (),
     }

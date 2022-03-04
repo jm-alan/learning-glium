@@ -166,7 +166,7 @@ fn main() {
           glutin::event::WindowEvent::CloseRequested => {
             action = support::Action::Stop
           }
-          ev => camera.process_input(&ev),
+          ev => camera.process_input(ev),
         },
         _ => (),
       }
